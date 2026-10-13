@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#cfcdc6">
+<title>Echo — Controller</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
+:root{
+  --soil:#cfcdc6; --soil-2:#c3c1b9; --slab:#dddbd4; --paper:#ecebe6;
+  --ink:#1b1b1a; --ink-2:#4a4944; --ink-3:#7c7a74; --line:rgba(27,27,26,.16); --line-2:rgba(27,27,26,.32);
+  --A:#1b1b1a; --B:#1A4361; --C:#4f5b33; --D:#7a3b2e; --me:var(--A);
+  --ok:#4f6a48; --bad:#8a4a42;
+  --p0:#b8893a; --p1:#3d7470; --p2:#6e4a6b; --p3:#b5603f;
+}
+body.slot-B{--me:var(--B)} body.slot-C{--me:var(--C)} body.slot-D{--me:var(--D)}
+html,body{height:100%;width:100%;background:var(--soil);color:var(--ink);font-family:'Unbounded',system-ui,sans-serif;overflow:hidden;touch-action:none;-webkit-font-smoothing:antialiased}
+input{user-select:text;-webkit-user-select:text}
+.cap{font-size:.62rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+  padding:max(env(safe-area-inset-top),22px) max(env(safe-area-inset-right),22px) max(env(safe-area-inset-bottom),22px) max(env(safe-area-inset-left),22px);transition:opacity .25s}
+.screen.hidden{opacity:0;pointer-events:none}
+.brand{font-size:.68rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
+.btn{width:100%;max-width:300px;padding:18px 20px;border:none;border-radius:10px;background:var(--ink);color:var(--paper);font-family:inherit;font-size:.85rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:transform .08s,background .2s}
+.btn:active{transform:scale(.98)}
+.btn.done{background:var(--slab);color:var(--ink);border:1px solid var(--line-2)}
+#code-input{width:100%;max-width:300px;padding:16px;text-align:center;letter-spacing:.3em;background:var(--paper);border:1px solid var(--line-2);border-radius:10px;color:var(--ink);font-family:inherit;font-size:1.6rem;font-weight:700;outline:none}
+#code-input:focus{border-color:var(--ink)}
+#code-input::placeholder{color:#b4b2ab}
+#error-msg{min-height:1.2em;font-size:.66rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--bad);text-align:center}
+#error-msg.info{color:var(--ink-3)}
+
+.chip{display:inline-flex;align-items:center;justify-content:center;border-radius:8px;background:var(--me);color:var(--paper);font-weight:800}
+#lobby-chip{width:112px;height:112px;font-size:3.4rem;border-radius:16px}
+#lobby-name{font-size:1rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.dots{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+.dot{display:flex;align-items:center;gap:6px;font-size:.58rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+.dot i{width:10px;height:10px;border-radius:2px;border:1px solid var(--line-2)}
+.dot.in i{background:var(--ink-3);border-color:var(--ink-3)}
+.dot.ready{color:var(--ink)}
+.dot.ready i{background:var(--c);border-color:var(--c)}
+#lobby-status{text-align:center;max-width:300px;line-height:1.7}
+
+/* ── play screen ── */
+#play-screen{justify-content:flex-start;gap:14px;padding-top:max(env(safe-area-inset-top),14px)}
+.head{width:100%;max-width:520px;display:flex;align-items:center;gap:10px}
+.head .chip{width:30px;height:30px;font-size:.85rem;border-radius:6px}
+.head .nm{font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.hearts{display:flex;gap:4px;margin-left:4px}
+.heart{width:15px;height:15px;color:var(--me);transition:opacity .3s}
+.heart path{fill:currentColor}
+.heart.lost{opacity:.18}
+#menu-btn{margin-left:auto;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;border:1px solid var(--line-2);background:var(--slab);font-family:inherit;font-size:.56rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink);touch-action:none}
+#menu-btn svg{width:14px;height:14px;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}
+#menu-btn.active{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.info{width:100%;max-width:520px;display:flex;flex-direction:column;gap:10px;align-items:center;text-align:center}
+#status{font-size:clamp(1rem,5.2vw,1.5rem);font-weight:700;line-height:1.25;min-height:1.25em}
+#status.win{color:var(--ok)} #status.bad{color:var(--bad)}
+#caption{min-height:1em}
+#pdots{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;min-height:10px;max-width:320px}
+#pdots i{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--ink-3)}
+#pdots i.on{background:var(--me);border-color:var(--me)}
+
+#pads{--size:min(92vw,calc(100vh - 230px),520px);width:var(--size);height:var(--size);display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:10px;margin-top:auto;margin-bottom:auto;transition:opacity .25s}
+.pad{position:relative;border-radius:16px;background:var(--slab);border:1px solid var(--line-2);overflow:hidden;touch-action:none;transition:transform .06s}
+.pad:nth-child(1){border-top-left-radius:46%}.pad:nth-child(2){border-top-right-radius:46%}
+.pad:nth-child(3){border-bottom-left-radius:46%}.pad:nth-child(4){border-bottom-right-radius:46%}
+.pad .fill{position:absolute;inset:0;background:var(--c);opacity:.55;transition:opacity .2s}
+.pad svg{position:absolute;left:50%;top:50%;width:26%;height:26%;transform:translate(-50%,-50%);fill:none;stroke:var(--paper);stroke-width:2.4;opacity:.9}
+.pad.lit{transform:scale(.96)}
+.pad.lit .fill{opacity:1;transition:none}
+.pad.hint{box-shadow:inset 0 0 0 5px var(--paper)}
+#pads.off .pad .fill{opacity:.18}
+#pads.off .pad svg{stroke:var(--c);opacity:.6}
+#pads.hide{display:none}
+#mlist{display:none;width:100%;max-width:420px;flex-direction:column;gap:8px;margin:auto 0}
+#mlist.on{display:flex}
+.mrow{padding:18px 16px;border-radius:10px;border:1px solid var(--line-2);font-size:.8rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink);text-align:center;touch-action:none}
+.mrow.focus{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.mrow:active{transform:scale(.98)}
+
+/* landscape: info left, pads right */
+@media (orientation:landscape){
+  #play-screen{flex-direction:row;flex-wrap:wrap;align-content:center;justify-content:center;gap:12px 28px;padding:max(env(safe-area-inset-top),12px) max(env(safe-area-inset-right),24px) max(env(safe-area-inset-bottom),12px) max(env(safe-area-inset-left),24px)}
+  .head{position:absolute;top:max(env(safe-area-inset-top),10px);left:max(env(safe-area-inset-left),20px);right:max(env(safe-area-inset-right),20px);max-width:none;width:auto}
+  .info{width:auto;flex:0 1 260px;align-items:flex-start;text-align:left;margin-top:30px}
+  #pdots{justify-content:flex-start}
+  #pads{--size:min(calc(100vh - 70px),52vw,520px);margin:30px 0 0}
+  #mlist{margin:30px 0 0;flex:0 1 380px}
+}
+
+#banner{position:fixed;top:0;left:0;right:0;z-index:90;display:none;background:var(--ink);color:var(--paper);text-align:center;font-size:.6rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;padding:9px 0}
+</style>
+</head>
+<body>
+<div id="banner"></div>
+
+<!-- JOIN -->
+<div class="screen" id="join-screen">
+  <div class="brand">Echo</div>
+  <div class="cap">Room code</div>
+  <input id="code-input" type="text" maxlength="6" placeholder="000000" autocomplete="off" inputmode="numeric">
+  <div id="error-msg"></div>
+  <button class="btn" id="join-btn">Join</button>
+</div>
+
+<!-- LOBBY -->
+<div class="screen hidden" id="lobby-screen">
+  <div class="brand">Echo</div>
+  <div class="chip" id="lobby-chip">A</div>
+  <div id="lobby-name">Player A</div>
+  <div class="dots" id="dots"></div>
+  <div class="cap" id="lobby-status">Press Ready when everyone is in</div>
+  <button class="btn" id="ready-btn">Ready</button>
+</div>
+
+<!-- MESSAGE -->
+<div class="screen hidden" id="msg-screen">
+  <div class="brand">Echo</div>
+  <div style="font-size:1.05rem;font-weight:700;text-align:center;max-width:300px;line-height:1.4" id="msg-title"></div>
+  <div class="cap" style="text-align:center;max-width:300px;line-height:1.7" id="msg-sub"></div>
+  <button class="btn" id="msg-btn" onclick="location.reload()">Reload</button>
+</div>
+
+<!-- PLAY -->
+<div class="screen hidden" id="play-screen">
+  <div class="head">
+    <span class="chip slot-letter">A</span><span class="nm" id="who-name">Player A</span>
+    <div class="hearts" id="hearts"></div>
+    <button id="menu-btn" aria-label="Menu"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>Menu</button>
+  </div>
+  <div class="info">
+    <div id="status">Waiting for the host…</div>
+    <div id="pdots"></div>
+    <div class="cap" id="caption"></div>
+  </div>
+  <div id="pads" class="off">
+    <div class="pad" data-pad="0" style="--c:var(--p0)"><div class="fill"></div><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg></div>
+    <div class="pad" data-pad="1" style="--c:var(--p1)"><div class="fill"></div><svg viewBox="0 0 24 24"><path d="M12 3l9.5 17h-19z"/></svg></div>
+    <div class="pad" data-pad="2" style="--c:var(--p2)"><div class="fill"></div><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="1"/></svg></div>
+    <div class="pad" data-pad="3" style="--c:var(--p3)"><div class="fill"></div><svg viewBox="0 0 24 24"><path d="M12 2.5l9.5 9.5-9.5 9.5L2.5 12z"/></svg></div>
+  </div>
+  <div id="mlist"></div>
+</div>
+
+<script>window.__SC_BASE=location.pathname.replace(/[^/]*$/,'');</script><script src="socket.io/socket.io.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const SLOTS=['A','B','C','D'];
+const socket = io({path:window.__SC_BASE+'socket.io',transports:['websocket']});
+const HEART='<svg class="heart" viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.7 4.5c2.1 0 3.6 1.1 5.3 3 1.7-1.9 3.2-3 5.3-3 3.7 0 5.8 3.9 4.3 7.3C19.5 16.4 12 21 12 21z"/></svg>';
+
+// One phone = one slot: a stable id survives reloads and the QR-preview → Chrome double-open.
+let clientId=null;
+try{ clientId=localStorage.getItem('echo_client'); }catch(e){}
+if(!clientId){
+  clientId=(crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)+Date.now().toString(36));
+  try{ localStorage.setItem('echo_client', clientId); }catch(e){}
+}
+
+let mySlot=null, myCode=null, isReady=false, dead=false;
+let padsOn=false, myLen=0, myPos=0;
+const buzz = ms => { try{ navigator.vibrate && navigator.vibrate(ms); }catch(e){} };
+
+// quiet local pad tones (the big screen stays silent while phones tap)
+const AC=window.AudioContext||window.webkitAudioContext; const ac=AC?new AC():null;
+const NOTES=[329.63,440.00,554.37,659.25];
+function tone(f,d,type,v){ if(!ac) return; if(ac.state==='suspended') ac.resume(); const t=ac.currentTime,o=ac.createOscillator(),g=ac.createGain(); o.type=type||'triangle'; o.frequency.value=f; g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(v||.18,t+.01); g.gain.exponentialRampToValueAtTime(.0008,t+d); o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+d+.05); }
+
+function showScreen(name){ ['join','lobby','msg','play'].forEach(s=>$(s+'-screen').classList.toggle('hidden', s!==name)); }
+function banner(msg){ const b=$('banner'); if(msg){ b.textContent=msg; b.style.display='block'; } else b.style.display='none'; }
+
+// ── connection ──
+socket.on('disconnect', () => { if(mySlot && !dead) banner('Connection lost — reconnecting…'); });
+socket.on('connect', () => {
+  if(dead) return;
+  if(mySlot && myCode) socket.emit('rejoin_game', { code:myCode, slot:mySlot, clientId });
+  else tryAutoJoin();
+});
+
+// ── join ──
+const codeInput=$('code-input'), errorMsg=$('error-msg');
+$('join-btn').addEventListener('click', doJoin);
+codeInput.addEventListener('keydown', e => { if(e.key==='Enter') doJoin(); });
+function doJoin(){
+  const code=codeInput.value.trim();
+  if(!/^\d{6}$/.test(code)){ errorMsg.className=''; errorMsg.textContent='Enter 6 digits'; return; }
+  errorMsg.className='info'; errorMsg.textContent='Connecting…';
+  myCode=code;
+  socket.emit('join_game', { code, clientId });
+}
+// QR link → join automatically, but only once the page is visible (scanner apps open a hidden preview first).
+const urlCode=new URLSearchParams(location.search).get('code');
+const urlValid=urlCode && /^\d{6}$/.test(urlCode);
+if(urlValid){ codeInput.value=urlCode; errorMsg.className='info'; errorMsg.textContent='Connecting…'; }
+let autoTried=false;
+function tryAutoJoin(){
+  if(autoTried || !urlValid || mySlot || !socket.connected) return;
+  if(document.visibilityState!=='visible') return;
+  autoTried=true; doJoin();
+}
+document.addEventListener('visibilitychange', tryAutoJoin);
+
+socket.on('join_error', msg => { errorMsg.className=''; errorMsg.textContent=msg; showScreen('join'); });
+socket.on('joined', ({ slot, code, started, ready }) => {
+  banner(null);
+  mySlot=slot; myCode=code;
+  SLOTS.forEach(s=>document.body.classList.toggle('slot-'+s, s===slot));
+  document.querySelectorAll('.slot-letter').forEach(e=>e.textContent=slot);
+  $('lobby-chip').textContent=slot;
+  $('lobby-name').textContent='Player '+slot;
+  $('who-name').textContent='Player '+slot;
+  if(!started){ setReady(!!ready); showScreen('lobby'); }
+});
+socket.on('replaced', () => {
+  dead=true; mySlot=null; banner(null);
+  $('msg-title').textContent='Controller is open in another tab';
+  $('msg-sub').textContent='This phone is already playing in another window.';
+  showScreen('msg'); socket.disconnect();
+});
+socket.on('host_exit', () => {
+  dead=true; banner(null);
+  $('msg-title').textContent='The big screen went back to the game catalog';
+  $('msg-sub').textContent='Pick the next game there and scan its QR code.';
+  $('msg-btn').style.display='none';
+  showScreen('msg');
+});
+socket.on('host_disconnected', () => {
+  if(dead) return;
+  dead=true; banner(null);
+  $('msg-title').textContent='The game screen disconnected';
+  $('msg-sub').textContent='Create a new game on the big screen and scan the QR code again.';
+  showScreen('msg');
+});
+
+// ── lobby ──
+$('dots').innerHTML=SLOTS.map(s=>`<div class="dot" id="dot-${s}" style="--c:var(--${s})"><i></i>${s}</div>`).join('');
+const readyBtn=$('ready-btn');
+function setReady(v){ isReady=v; readyBtn.textContent=v?'You’re ready':'Ready'; readyBtn.classList.toggle('done', v); }
+readyBtn.addEventListener('click', () => {
+  buzz(15);
+  if(ac && ac.state==='suspended') ac.resume();
+  if(isReady){ setReady(false); socket.emit('player_unready'); }
+  else { setReady(true); socket.emit('player_ready'); }
+});
+socket.on('game_event', ({ event, data }) => {
+  if(event!=='lobby_ready_update') return;
+  const here=SLOTS.filter(s=>data.slots[s].on);
+  SLOTS.forEach(s=>{ const d=$('dot-'+s), v=data.slots[s]; d.style.display=v.on?'':'none'; d.classList.toggle('in', v.on); d.classList.toggle('ready', v.ready); });
+  const waiting=here.filter(s=>!data.slots[s].ready).length;
+  $('lobby-status').textContent = data.starting ? 'Everyone is ready — starting…'
+    : !isReady ? (here.length===1 ? 'Alone? Press Ready to play solo — or wait for friends' : 'Press Ready when everyone is in')
+    : `Waiting for ${waiting} more ${waiting===1?'player':'players'}… tap again to cancel`;
+});
+socket.on('game_start', () => { showScreen('play'); });
+socket.on('back_to_lobby', () => { setReady(false); renderUI(null); showScreen('lobby'); });
+
+// ── mirror of the big screen ──
+socket.on('host_ui', renderUI);
+function renderUI(ui){
+  const st=$('status'), ml=$('mlist'), pd=$('pads');
+  if(!ui){ st.className=''; st.textContent='Waiting for the host…'; ml.classList.remove('on'); pd.classList.remove('hide'); setPads(false); $('caption').textContent=''; return; }
+  if(ui.lives && ui.lives[mySlot]!==undefined) renderHearts(ui.lives[mySlot]);
+  if(ui.items){
+    st.className=''; st.textContent = ui.menu==='pause' ? 'Paused' : 'What next?';
+    ml.innerHTML=ui.items.map((t,i)=>`<div class="mrow${i===ui.focus?' focus':''}" data-i="${i}">${t}</div>`).join('');
+    ml.querySelectorAll('.mrow').forEach(r=>r.addEventListener('touchstart', pick, { passive:false }));
+    ml.querySelectorAll('.mrow').forEach(r=>r.addEventListener('mousedown', pick));
+    ml.classList.add('on'); pd.classList.add('hide');
+    $('caption').textContent='Tap an option';
+    setPads(false);
+    return;
+  }
+  ml.classList.remove('on'); pd.classList.remove('hide');
+  const s=ui.status && ui.status[mySlot];
+  if(s){ st.className = s.tone==='win' ? 'win' : s.tone==='bad' ? 'bad' : ''; st.textContent=s.text; }
+  $('caption').textContent=ui.caption||'';
+  const on = !!(ui.pads && ui.pads[mySlot]==='on');
+  myLen=ui.len||0;
+  if(ui.phase==='input') myPos = (ui.pos && ui.pos[mySlot]!==undefined) ? ui.pos[mySlot] : myPos;
+  else if(ui.phase==='watch'||ui.phase==='countdown') myPos=0;
+  setPads(on && ui.phase==='input');
+  renderDots();
+}
+function pick(e){ e.preventDefault(); buzz(15); socket.emit('ctrl_pick', { index:+e.currentTarget.dataset.i }); }
+function renderHearts(n){ const h=$('hearts'); h.innerHTML=Array.from({length:3},()=>HEART).join(''); h.querySelectorAll('.heart').forEach((x,i)=>{ if(i>=n) x.classList.add('lost'); }); }
+function renderDots(){ $('pdots').innerHTML=Array.from({length:myLen},(_,i)=>`<i class="${i<myPos?'on':''}"></i>`).join(''); }
+function setPads(on){ padsOn=on; $('pads').classList.toggle('off', !on); if(!on) document.querySelectorAll('.pad.hint').forEach(p=>p.classList.remove('hint')); }
+
+// Feedback for this phone's own taps.
+socket.on('player_msg', m => {
+  if(!m) return;
+  if(m.t==='ok'){ myPos=m.pos; renderDots(); }
+  else if(m.t==='done'){ myPos=m.pos; renderDots(); setPads(false); buzz([20,40,20]); $('status').className='win'; $('status').textContent='Got it!'; tone(880,.25,'triangle',.15); }
+  else if(m.t==='wrong' || m.t==='slow'){
+    setPads(false); buzz(250); renderHearts(m.lives);
+    $('status').className='bad';
+    $('status').textContent = m.lives ? `${m.t==='wrong'?'Wrong':'Too slow'} — ${m.lives===1?'1 life':m.lives+' lives'} left` : 'Out!';
+    tone(130,.35,'sawtooth',.1);
+    if(m.t==='wrong' && m.expected>=0){ const p=document.querySelector(`.pad[data-pad="${m.expected}"]`); if(p){ p.classList.add('hint'); setTimeout(()=>p.classList.remove('hint'),1200); } }
+  }
+});
+
+// ── Pads ──
+document.querySelectorAll('.pad').forEach(pad=>{
+  const i=+pad.dataset.pad;
+  const down=e=>{
+    e.preventDefault();
+    if(!padsOn) return;
+    pad.classList.add('lit'); buzz(10); tone(NOTES[i],.22);
+    clearTimeout(pad._t); pad._t=setTimeout(()=>pad.classList.remove('lit'),160);
+    socket.emit('ctrl_pad', { pad:i });
+  };
+  pad.addEventListener('touchstart', down, { passive:false });
+  pad.addEventListener('mousedown', down);
+});
+
+// ── Menu button → pause menu on the big screen ──
+const menuBtn=$('menu-btn');
+function menuDown(e){ e.preventDefault(); menuBtn.classList.add('active'); buzz(15); socket.emit('ctrl_menu'); }
+function menuUp(e){ e.preventDefault(); menuBtn.classList.remove('active'); }
+menuBtn.addEventListener('touchstart', menuDown, { passive:false });
+menuBtn.addEventListener('touchend', menuUp, { passive:false });
+menuBtn.addEventListener('mousedown', menuDown);
+menuBtn.addEventListener('mouseup', menuUp);
+renderHearts(3);
+</script>
+</body>
+</html>

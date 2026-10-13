@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#cfcdc6">
+<title>Echo</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--soil:#cfcdc6;--slab:#dddbd4;--paper:#ecebe6;--ink:#1b1b1a;--ink-3:#7c7a74;--line-2:rgba(27,27,26,.32);
+  --p0:#b8893a;--p1:#3d7470;--p2:#6e4a6b;--p3:#b5603f}
+html,body{height:100%;background:var(--soil);color:var(--ink);font-family:'Unbounded',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;padding:24px 16px;text-align:center}
+.cap{font-size:.66rem;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3)}
+h1{font-size:clamp(2rem,7vw,4.4rem);font-weight:800;letter-spacing:-.02em;line-height:1.02}
+.sub{font-size:clamp(.72rem,1.6vw,.9rem);font-weight:400;color:#4a4944;max-width:440px;line-height:1.7}
+.logo{display:grid;grid-template-columns:1fr 1fr;gap:6px;width:92px;height:92px}
+.logo i{border-radius:8px;animation:blink 3.2s infinite}
+.logo i:nth-child(1){background:var(--p0);border-top-left-radius:50%}
+.logo i:nth-child(2){background:var(--p1);border-top-right-radius:50%;animation-delay:.8s}
+.logo i:nth-child(3){background:var(--p2);border-bottom-left-radius:50%;animation-delay:2.4s}
+.logo i:nth-child(4){background:var(--p3);border-bottom-right-radius:50%;animation-delay:1.6s}
+@keyframes blink{0%,22%,100%{opacity:.3}6%,14%{opacity:1}}
+.btns{display:flex;flex-direction:column;gap:10px;width:100%;max-width:320px}
+.btn{padding:19px 20px;border-radius:10px;border:none;background:var(--ink);color:var(--paper);font-family:inherit;font-size:.85rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:transform .08s}
+.btn:active{transform:scale(.98)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+  <div class="cap">1–4 players · memory</div>
+  <h1>Echo</h1>
+  <div class="sub">Watch the pads light up, then repeat the sequence on your phone. It gets one step longer every round.</div>
+  <div class="btns">
+    <button class="btn" onclick="location.href='host'">Create game</button>
+  </div>
+</div>
+</body>
+</html>

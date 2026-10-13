@@ -1,0 +1,17 @@
+{
+  "name": "echo-server",
+  "version": "1.0.0",
+  "description": "Echo - Simon-style memory game for 1-4 players with phone controllers (Shared Couch)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.7.5"
+  }
+}

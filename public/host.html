@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#cfcdc6">
+<title>Echo</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --soil:#cfcdc6; --soil-2:#c3c1b9; --slab:#dddbd4; --slab-hi:#e9e7e1; --paper:#ecebe6;
+  --ink:#1b1b1a; --ink-2:#4a4944; --ink-3:#7c7a74; --line:rgba(27,27,26,.16); --line-2:rgba(27,27,26,.32);
+  --A:#1b1b1a; --B:#1A4361; --C:#4f5b33; --D:#7a3b2e;
+  --ok:#4f6a48; --ok-bg:#bcc8b3; --bad:#8a4a42; --win:#5fd16a;
+  /* the four echo pads */
+  --p0:#b8893a; --p1:#3d7470; --p2:#6e4a6b; --p3:#b5603f;
+  --board:min(60vh,46vw);
+}
+html,body{height:100%;background:var(--soil);color:var(--ink);font-family:'Unbounded',system-ui,sans-serif;overflow:hidden;user-select:none;-webkit-font-smoothing:antialiased}
+body{display:grid;grid-template-rows:auto 6px 1fr}
+.cap{font-size:clamp(.6rem,1.05vw,.8rem);font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.chip{display:inline-flex;align-items:center;justify-content:center;border-radius:5px;color:var(--paper);font-weight:800;flex-shrink:0}
+.chip.A{background:var(--A)}.chip.B{background:var(--B)}.chip.C{background:var(--C)}.chip.D{background:var(--D)}
+
+/* ── TOP BAR: one card per player + round badge ── */
+#topbar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:clamp(12px,2vw,28px);padding:clamp(12px,2vh,22px) clamp(16px,2.6vw,40px);border-bottom:1px solid var(--line)}
+.side{display:flex;gap:clamp(8px,1vw,14px);min-width:0}
+.side.l{justify-content:flex-start}.side.r{justify-content:flex-end}
+.card{position:relative;flex:0 1 clamp(170px,19vw,270px);min-width:0;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:4px 12px;padding:10px 12px 12px;border-radius:10px;background:var(--slab);border:1px solid var(--line-2);transition:opacity .3s,background .2s,border-color .2s}
+.card .chip{width:clamp(26px,2.6vw,36px);height:clamp(26px,2.6vw,36px);font-size:clamp(.7rem,1.1vw,.95rem);grid-row:1/3}
+.card .nm{font-size:clamp(.6rem,.95vw,.78rem);font-weight:700;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+.card .st{grid-column:2;font-size:clamp(.5rem,.8vw,.64rem);font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .st.good{color:var(--ok);font-weight:700}.card .st.bad{color:var(--bad);font-weight:700}
+.card .best{grid-column:3;grid-row:1/3;text-align:right;font-size:clamp(1.3rem,2.6vw,2.2rem);font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.card .best small{display:block;font-size:clamp(.42rem,.6vw,.52rem);font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);margin-top:4px}
+.card .hearts{grid-column:1/4;display:flex;gap:4px;margin-top:4px}
+.card .prog{position:absolute;left:10px;right:10px;bottom:5px;height:3px;border-radius:2px;background:var(--line);overflow:hidden}
+.card .prog i{display:block;height:100%;width:0;background:var(--ink);transition:width .12s}
+.card.B .prog i{background:var(--B)}.card.C .prog i{background:var(--C)}.card.D .prog i{background:var(--D)}
+.card.out{opacity:.4}
+.card.flash-ok{border-color:var(--ok);background:var(--slab-hi)}
+.card.flash-bad{animation:shake .4s}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+.heart{width:clamp(11px,1.2vw,16px);height:clamp(11px,1.2vw,16px);transition:opacity .3s}
+.heart path{fill:currentColor}
+.heart.lost{opacity:.18}
+.heart.break{animation:hbreak .6s ease-out}
+@keyframes hbreak{0%{transform:scale(1)}30%{transform:scale(1.5) rotate(-12deg)}60%{transform:scale(.8) rotate(8deg)}100%{transform:scale(1)}}
+.mid{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:clamp(120px,14vw,190px)}
+#rbadge{font-size:clamp(.72rem,1.2vw,.98rem);font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+#rsub{font-size:clamp(.52rem,.85vw,.68rem);font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+
+/* ── TIMER ── */
+#timer-track{background:var(--soil-2)}
+#timer-fill{height:100%;width:0;background:var(--ink)}
+#timer-fill.low{background:var(--bad)}
+
+/* ── BOARD ── */
+#main{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(14px,3vh,30px)}
+#board{position:relative;width:var(--board);height:var(--board);display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:clamp(10px,1.6vh,18px)}
+.pad{position:relative;border-radius:18px;background:var(--slab);border:1px solid var(--line-2);overflow:hidden;transition:transform .12s}
+.pad:nth-child(1){border-top-left-radius:50%}
+.pad:nth-child(2){border-top-right-radius:50%}
+.pad:nth-child(3){border-bottom-left-radius:50%}
+.pad:nth-child(4){border-bottom-right-radius:50%}
+.pad .fill{position:absolute;inset:0;background:var(--c);opacity:.26;transition:opacity .18s}
+.pad .glyph{position:absolute;width:22%;height:22%;fill:none;stroke:var(--c);stroke-width:2.4;opacity:.75;transition:stroke .12s,opacity .12s}
+.pad:nth-child(1) .glyph{left:24%;top:24%}.pad:nth-child(2) .glyph{right:24%;top:24%}
+.pad:nth-child(3) .glyph{left:24%;bottom:24%}.pad:nth-child(4) .glyph{right:24%;bottom:24%}
+.pad.lit{transform:scale(1.035);border-color:var(--c);box-shadow:0 0 0 4px var(--soil),0 0 0 8px var(--c)}
+.pad.lit .fill{opacity:1;transition:none}
+.pad.lit .glyph{stroke:var(--paper);opacity:1}
+#board.rest .pad .fill{opacity:.16}
+#hub{position:absolute;left:50%;top:50%;width:34%;height:34%;transform:translate(-50%,-50%);border-radius:50%;background:var(--ink);color:var(--paper);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;box-shadow:0 0 0 clamp(8px,1.4vh,14px) var(--soil);text-align:center}
+#hub-t{font-size:calc(var(--board)*.06);font-weight:800;line-height:1;letter-spacing:-.01em}
+#hub-t.big{font-size:calc(var(--board)*.13)}
+#hub-s{font-size:calc(var(--board)*.022);font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#9a9891}
+#steps{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:var(--board);min-height:10px}
+.sd{width:10px;height:10px;border-radius:50%;border:1.5px solid var(--ink-3);transition:background .1s,border-color .1s}
+.sd.on{background:var(--ink);border-color:var(--ink)}
+#result{min-height:1.4em;font-size:clamp(.72rem,1.3vw,1rem);font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-align:center;display:flex;align-items:center;gap:10px;opacity:0;transition:opacity .2s}
+#result.show{opacity:1}
+#result .sub{color:var(--ink-3);font-weight:500}
+
+/* ── FULL-SCREEN PANELS ── */
+.panel{position:fixed;inset:0;z-index:50;background:var(--soil);display:none;flex-direction:column;align-items:center;justify-content:center;gap:clamp(16px,3vh,32px);padding:24px}
+.panel.on{display:flex}
+.corner{position:absolute;top:clamp(16px,3vh,32px);font-size:clamp(.62rem,1vw,.8rem);font-weight:700;letter-spacing:.16em;text-transform:uppercase}
+.corner.l{left:clamp(18px,3vw,44px)}
+.corner.r{right:clamp(18px,3vw,44px);color:var(--ink-3);font-weight:500}
+.corner.r b{color:var(--ink);font-weight:700;letter-spacing:.2em}
+.h1{font-size:clamp(1.4rem,3.6vw,2.8rem);font-weight:800;letter-spacing:-.01em;text-align:center}
+.hint{font-size:clamp(.58rem,.95vw,.74rem);font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);display:flex;align-items:center;gap:10px;text-align:center}
+.hint b{color:var(--ink)}
+.k{display:inline-flex;align-items:center;justify-content:center;min-width:1.9em;height:1.9em;padding:0 .4em;border:1px solid var(--line-2);border-radius:4px;color:var(--ink-2)}
+
+/* lobby */
+#qr-card{background:var(--paper);border-radius:14px;padding:clamp(12px,1.8vh,20px);width:min(42vh,360px);aspect-ratio:1;display:flex;align-items:center;justify-content:center}
+#qr-card svg{width:100%;height:100%;display:block}
+#qr-card .wait{font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.slots{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.slot{width:min(22vw,210px);display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:1px dashed var(--line-2);transition:all .2s}
+.slot .chip{width:32px;height:32px;font-size:.85rem;opacity:.25;transition:opacity .2s}
+.slot-t{display:flex;flex-direction:column;gap:4px;min-width:0}
+.slot-n{font-size:.74rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+.slot-s{font-size:.58rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.slot.in{border-style:solid;background:var(--slab)}
+.slot.in .chip,.slot.ready .chip{opacity:1}
+.slot.ready{border-style:solid;border-color:var(--ink);background:var(--slab-hi)}
+.slot.ready .slot-s{color:var(--ink)}
+#lobby-status{min-height:1.2em}
+#join-url{font-size:.62rem;letter-spacing:.06em;color:var(--ink-3);font-weight:400}
+
+/* end */
+.cards{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+.rc{width:min(21vw,220px);border-radius:12px;padding:18px;background:var(--slab);border:1px solid var(--line-2);display:flex;flex-direction:column;gap:12px}
+.rc-n{display:flex;align-items:center;gap:10px;font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.rc-n .chip{width:24px;height:24px;font-size:.7rem}
+.rc-s{font-size:clamp(2.4rem,5.4vw,4rem);font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.rc-l{font-size:.6rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;opacity:.7}
+.rc-w{font-size:.58rem;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);min-height:1em}
+.rc.win{background:var(--wc,var(--ink));border-color:var(--wc,var(--ink));color:var(--paper)}
+.rc.win .rc-w{color:#c9c7c0}
+.rc.win .chip{box-shadow:0 0 0 2px var(--paper)}
+.rc.solo{width:min(40vw,320px);align-items:center;text-align:center}
+.bestline{font-size:.66rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.bestline b{color:var(--ink)}
+.newbest{display:inline-block;margin-left:8px;padding:3px 8px;border-radius:4px;background:var(--win);color:#0f3a12}
+.menu{display:flex;flex-direction:column;gap:8px;width:min(360px,80vw)}
+.mi{padding:16px 20px;border-radius:10px;border:1px solid var(--line-2);font-size:.82rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:background .15s,color .15s}
+.mi::after{content:'';width:8px;height:8px;border-radius:50%;background:transparent}
+.mi.focus{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.mi.focus::after{background:var(--paper)}
+
+/* menu button + pause */
+#menu-btn{position:fixed;right:clamp(14px,2vw,28px);bottom:clamp(14px,2vh,24px);z-index:90;display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;border:1px solid var(--line-2);background:var(--soil);color:var(--ink);font-family:inherit;font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;opacity:.75;transition:opacity .15s,background .15s}
+#menu-btn:hover{opacity:1;background:var(--slab)}
+#menu-btn svg{width:16px;height:16px;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+#p-pause{z-index:85;background:rgba(207,205,198,.94)}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:60;background:var(--ink);color:var(--paper);font-size:.66rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;padding:10px 16px;border-radius:6px;opacity:0;transition:opacity .25s;pointer-events:none}
+#toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<header id="topbar">
+  <div class="side l" id="side-l"></div>
+  <div class="mid"><div id="rbadge">Round 1</div><div id="rsub">3 steps</div></div>
+  <div class="side r" id="side-r"></div>
+</header>
+<div id="timer-track"><div id="timer-fill"></div></div>
+
+<main id="main">
+  <div id="board" class="rest">
+    <div class="pad" style="--c:var(--p0)"><div class="fill"></div><svg class="glyph" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg></div>
+    <div class="pad" style="--c:var(--p1)"><div class="fill"></div><svg class="glyph" viewBox="0 0 24 24"><path d="M12 3l9.5 17h-19z"/></svg></div>
+    <div class="pad" style="--c:var(--p2)"><div class="fill"></div><svg class="glyph" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="1"/></svg></div>
+    <div class="pad" style="--c:var(--p3)"><div class="fill"></div><svg class="glyph" viewBox="0 0 24 24"><path d="M12 2.5l9.5 9.5-9.5 9.5L2.5 12z"/></svg></div>
+    <div id="hub"><div id="hub-t">Echo</div><div id="hub-s">Get ready</div></div>
+  </div>
+  <div id="steps"></div>
+  <div id="result"></div>
+</main>
+
+<!-- LOBBY -->
+<section class="panel on" id="p-lobby">
+  <div class="corner l">Echo</div>
+  <div class="corner r">Room <b id="room-code">——————</b></div>
+  <div id="qr-card"><span class="wait">Creating room…</span></div>
+  <div class="hint">Scan with your phone camera · 1–4 players</div>
+  <div class="slots" id="slots"></div>
+  <div class="hint" id="lobby-status">The game starts when everyone has pressed <b>&nbsp;Ready&nbsp;</b></div>
+  <div id="join-url"></div>
+</section>
+
+<!-- END -->
+<section class="panel" id="p-end">
+  <div class="corner l">Echo</div>
+  <div class="h1" id="end-title">Game over</div>
+  <div class="cards" id="end-cards"></div>
+  <div class="menu" id="end-menu"></div>
+  <div class="hint">Tap an option on your phone</div>
+</section>
+
+<!-- PAUSE (any phone's Menu button, Esc, or the corner button) -->
+<section class="panel" id="p-pause">
+  <div class="corner l">Echo</div>
+  <div class="h1">Paused</div>
+  <div class="menu" id="pause-menu"></div>
+  <div class="hint">Tap an option on your phone · <span class="k">Esc</span> resumes</div>
+</section>
+
+<button id="menu-btn" aria-label="Menu"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>Menu</button>
+<div id="toast"></div>
+
+<script>window.__SC_BASE=location.pathname.replace(/[^/]*$/,'');</script><script src="socket.io/socket.io.js"></script>
+<script>
+// ════════════════════════════════════════════════════════════════
+//  ECHO — the big screen plays a growing sequence on 4 pads,
+//  every player repeats it on their phone. Wrong or too slow = a life.
+// ════════════════════════════════════════════════════════════════
+const SLOTS = ['A','B','C','D'];
+const LIVES = 3;
+const START_LEN = 3;              // steps in round 1; +1 every round
+const MENU_LOCK = 900;            // ms input lock after a menu opens
+const RESULT_TIME = 1600;         // ms the round result stays up
+const flashOn  = len => Math.max(280, 620 - (len-START_LEN)*24);   // ms a pad stays lit
+const flashGap = len => Math.max(110, 230 - (len-START_LEN)*9);    // ms between pads
+const inputTime = len => 2500 + len*750;                           // ms to repeat the sequence
+const HEART='<svg class="heart" viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.7 4.5c2.1 0 3.6 1.1 5.3 3 1.7-1.9 3.2-3 5.3-3 3.7 0 5.8 3.9 4.3 7.3C19.5 16.4 12 21 12 21z"/></svg>';
+
+const $ = id => document.getElementById(id);
+const pads = [...document.querySelectorAll('.pad')];
+
+// ── Sound: synthesised, no files (pads = A-major arpeggio) ──
+const AC = window.AudioContext || window.webkitAudioContext;
+const ac = AC ? new AC() : null;
+const master = ac ? ac.createGain() : null;
+if(master){ master.gain.value=.55; master.connect(ac.destination); }
+const NOTES=[329.63,440.00,554.37,659.25];
+function tone(freq, dur, type, vol, when){
+  if(!ac) return;
+  if(ac.state==='suspended') ac.resume();
+  const t=ac.currentTime+(when||0), o=ac.createOscillator(), g=ac.createGain();
+  o.type=type||'triangle'; o.frequency.value=freq;
+  g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(vol||.35,t+.015); g.gain.exponentialRampToValueAtTime(.0008,t+dur);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+.05);
+}
+const sPad  = (i,ms) => tone(NOTES[i], Math.max(.25,ms/1000+.12), 'triangle', .4);
+const sTick = () => tone(880,.09,'square',.08);
+const sGo   = () => { tone(659.25,.12,'triangle',.25); tone(880,.22,'triangle',.25,.1); };
+const sGood = () => { tone(554.37,.14,'triangle',.22); tone(659.25,.14,'triangle',.22,.09); tone(880,.3,'triangle',.22,.18); };
+const sBad  = () => { tone(146.8,.32,'sawtooth',.14); tone(110,.4,'sawtooth',.12,.12); };
+const sClick= () => tone(1200,.04,'square',.05);
+['pointerdown','click','keydown','touchstart'].forEach(e=>document.addEventListener(e,()=>{ if(ac&&ac.state==='suspended') ac.resume(); }));
+
+// ── State ──
+let phase='lobby';               // lobby | countdown | watch | input | result | end
+let menu=null;                   // { id, items, focus, openedAt }
+let active=[];                   // slots in this game, e.g. ['A','C']
+let P={};                        // per slot: { lives, best, pos, st }  st: typing|done|wrong|slow|out
+let seq=[], round=0;
+let timers=[], inputTimer=null, timerStart=0, timerDur=0, timerRAF=null;
+let lobby=null, paused=null, lastUI=null;
+
+function later(fn, ms){ const t={ fn, due:performance.now()+ms }; t.id=setTimeout(()=>{ timers=timers.filter(x=>x!==t); fn(); }, ms); timers.push(t); return t; }
+function cancelLater(t){ if(!t) return; clearTimeout(t.id); timers=timers.filter(x=>x!==t); }
+function clearTimers(){ timers.forEach(t=>clearTimeout(t.id)); timers=[]; cancelAnimationFrame(timerRAF); inputTimer=null; }
+function showPanel(id){ ['p-lobby','p-end'].forEach(p=>$(p).classList.toggle('on', p===id)); }
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('show'),2600); }
+const alive = () => active.filter(s=>P[s].lives>0);
+const livesText = n => n===1 ? '1 life left' : `${n} lives left`;
+
+// ── Lobby slots ──
+$('slots').innerHTML = SLOTS.map(s=>`<div class="slot" id="slot-${s}"><span class="chip ${s}">${s}</span><div class="slot-t"><span class="slot-n">Player ${s}</span><span class="slot-s">Waiting</span></div></div>`).join('');
+
+// ── Networking ──
+const socket = io({path:window.__SC_BASE+'socket.io'});
+let roomCode=null;
+socket.on('connect', () => { if(!roomCode) socket.emit('create_game'); });
+socket.on('game_created', ({ code, joinUrl, qrSvg }) => {
+  roomCode=code;
+  $('room-code').textContent=code;
+  $('qr-card').innerHTML = qrSvg || '<span class="wait">QR unavailable</span>';
+  $('join-url').textContent = joinUrl.replace(/^https?:\/\//,'');
+});
+
+let startTick=null;
+socket.on('game_event', ({ event, data }) => {
+  if(event!=='lobby_ready_update') return;
+  lobby=data;
+  SLOTS.forEach(s=>{
+    const el=$('slot-'+s), d=data.slots[s];
+    el.classList.toggle('in', d.on && !d.ready);
+    el.classList.toggle('ready', d.on && d.ready);
+    el.querySelector('.slot-s').textContent = !d.on ? 'Waiting' : d.ready ? 'Ready' : 'Connected';
+  });
+  clearInterval(startTick);
+  const ls=$('lobby-status');
+  if(data.starting && data.startsAt){
+    const upd=()=>{ const s=Math.max(1,Math.ceil((data.startsAt-Date.now())/1000)); ls.innerHTML=`Everyone is ready — starting in <b>&nbsp;${s}&nbsp;</b>`; };
+    upd(); startTick=setInterval(upd,250);
+  } else {
+    const n=SLOTS.filter(s=>data.slots[s].on).length;
+    ls.innerHTML = n ? 'The game starts when everyone has pressed <b>&nbsp;Ready&nbsp;</b>' : 'Up to 4 phones can join — or play alone';
+  }
+});
+
+socket.on('player_left',   ({ slot }) => { if(phase!=='lobby') toast(`Player ${slot} disconnected`); });
+socket.on('player_joined', ({ slot }) => { if(phase!=='lobby') toast(`Player ${slot} is back`); });
+
+socket.on('game_start', (info) => {
+  if(phase!=='lobby') return;
+  clearInterval(startTick);
+  active = ((info && info.players) || ['A']).filter(s=>SLOTS.includes(s));
+  if(!active.length) return;
+  startGame();
+});
+
+socket.on('ctrl_pad',  ({ slot, pad }) => { if(!paused && phase==='input') handlePad(slot, pad); });
+socket.on('ctrl_pick', ({ index }) => { if(!menu) return; if(performance.now()-menu.openedAt<MENU_LOCK) return; if(index<0||index>=menu.items.length) return; menu.focus=index; renderMenu(); menuSelect(true); });
+socket.on('ctrl_menu', () => { paused ? closePause() : openPause(); });
+$('menu-btn').addEventListener('click', () => { paused ? closePause() : openPause(); });
+
+// keyboard fallback on the host (menus only)
+document.addEventListener('keydown', e => {
+  const map={ArrowUp:-1,ArrowLeft:-1,ArrowDown:1,ArrowRight:1};
+  if(map[e.key] && menu){ e.preventDefault(); menuMove(map[e.key]); }
+  if((e.key==='Enter'||e.key===' ') && menu){ e.preventDefault(); menuSelect(); }
+  if(e.key==='Escape'){ e.preventDefault(); paused ? closePause() : openPause(); }
+});
+
+// ── Phone mirror ──
+// status[slot] = { text, tone } · pads: 'on' while that phone may tap
+function pushUI(extra){
+  if(!paused) lastUI=extra||null;
+  const ui=Object.assign({ phase, menu:null, items:null, focus:0, status:{}, pads:{}, len:seq.length, round, lives:{} }, extra||{});
+  active.forEach(s=>{ if(P[s]) ui.lives[s]=P[s].lives; });
+  // During the turn, rebuild pads/progress/status from live state (also after a pause).
+  if(phase==='input'){
+    ui.pads={}; ui.pos={};
+    active.forEach(s=>{ const p=P[s]; ui.pos[s]=p.pos; if(p.st==='typing') ui.pads[s]='on'; ui.status[s]=playerStatus(s); });
+  }
+  if(menu){ ui.menu=menu.id; ui.items=menu.items.map(i=>i.label); ui.focus=menu.focus; }
+  socket.emit('host_ui', ui);
+}
+function playerStatus(s){
+  const p=P[s];
+  return p.st==='typing' ? { text:'Your turn!' }
+       : p.st==='done'   ? { text:'Got it!', tone:'win' }
+       : p.st==='wrong'  ? { text: p.lives ? `Wrong — ${livesText(p.lives)}` : 'Out!', tone:'bad' }
+       : p.st==='slow'   ? { text: p.lives ? `Too slow — ${livesText(p.lives)}` : 'Out!', tone:'bad' }
+       : { text:'Out — watch the others' };
+}
+const toPlayer = (slot,msg) => socket.emit('to_player', { slot, msg });
+
+// ── Menus ──
+function openMenu(id, items, focus, lockShort){
+  menu={ id, items, focus:focus||0, openedAt:performance.now()-(lockShort?MENU_LOCK-350:0) };
+  const box=$(id==='pause'?'pause-menu':'end-menu');
+  box.innerHTML=items.map(i=>`<div class="mi">${i.label}</div>`).join('');
+  box.querySelectorAll('.mi').forEach((el,i)=>el.addEventListener('click',()=>{ menu.focus=i; menuSelect(true); }));
+  renderMenu(); pushUI(lastUI);
+}
+function menuMove(step){
+  if(performance.now()-menu.openedAt<MENU_LOCK) return;
+  const n=Math.max(0,Math.min(menu.items.length-1,menu.focus+step));
+  if(n===menu.focus) return;
+  menu.focus=n; sClick(); renderMenu(); pushUI(lastUI);
+}
+function menuSelect(force){
+  if(!force && performance.now()-menu.openedAt<MENU_LOCK) return;
+  sClick();
+  const it=menu.items[menu.focus]; it.action();
+}
+function renderMenu(){
+  if(!menu) return;
+  const box=$(menu.id==='pause'?'pause-menu':'end-menu');
+  box.querySelectorAll('.mi').forEach((el,i)=>el.classList.toggle('focus', i===menu.focus));
+}
+
+// ── Pause: Resume / Back to lobby / Game catalog ──
+// Behind the Shared Couch front door the game lives at /<game>/, so the catalog is the site root.
+const CATALOG_URL = (window.__SC_BASE && window.__SC_BASE!=='/') ? '/#games' : 'https://sharedcouch.online/#games';
+function openPause(){
+  if(paused) return;
+  const now=performance.now();
+  paused={ at:now, prevMenu:menu, rem:timers.map(t=>({ fn:t.fn, ms:Math.max(0,t.due-now), input:t===inputTimer })) };
+  timers.forEach(t=>clearTimeout(t.id)); timers=[]; cancelAnimationFrame(timerRAF);
+  pads.forEach(p=>p.classList.remove('lit'));
+  if(master) master.gain.value=0;
+  const items=[{ label:'Resume', action:()=>closePause() }];
+  if(phase!=='lobby') items.push({ label:'Back to lobby', action:()=>{ dropPause(); backToLobby(); } });
+  items.push({ label:'Game catalog', action:()=>goCatalog() });
+  $('p-pause').classList.add('on');
+  openMenu('pause', items, 0, true);
+}
+function dropPause(){ paused=null; $('p-pause').classList.remove('on'); if(master) master.gain.value=.55; }
+function closePause(){
+  if(!paused) return;
+  const p=paused; dropPause();
+  const now=performance.now();
+  timerStart += now-p.at;
+  menu=p.prevMenu; if(menu){ menu.openedAt=now; renderMenu(); }
+  p.rem.forEach(r=>{ const t=later(r.fn, r.ms); if(r.input) inputTimer=t; });
+  if(phase==='input') animateTimer();
+  pushUI(lastUI);
+}
+function goCatalog(){
+  dropPause(); clearTimers();
+  socket.emit('host_exit');
+  setTimeout(()=>{ location.href=CATALOG_URL; }, 150);
+}
+
+function backToLobby(){
+  menu=null; clearTimers(); phase='lobby';
+  showPanel('p-lobby');
+  socket.emit('host_back_to_lobby');
+}
+
+// ── Top bar ──
+function buildTopbar(){
+  const card=s=>`<div class="card ${s}" id="card-${s}"><span class="chip ${s}">${s}</span><div class="nm">Player ${s}</div><div class="st" id="st-${s}">—</div><div class="best" id="best-${s}">0<small>best</small></div><div class="hearts" id="hp-${s}"></div><div class="prog"><i id="pg-${s}"></i></div></div>`;
+  const half=Math.ceil(active.length/2);
+  $('side-l').innerHTML=active.slice(0,half).map(card).join('');
+  $('side-r').innerHTML=active.slice(half).map(card).join('');
+}
+function renderHearts(s, broke){
+  const el=$('hp-'+s); if(!el) return;
+  el.innerHTML=Array.from({length:LIVES},()=>HEART).join('');
+  el.style.color=`var(--${s})`;
+  el.querySelectorAll('.heart').forEach((h,i)=>{ if(i>=P[s].lives) h.classList.add('lost'); if(broke && i===P[s].lives) h.classList.add('break'); });
+  $('card-'+s).classList.toggle('out', P[s].lives<=0);
+}
+function setSt(s, text, cls){ const el=$('st-'+s); if(!el) return; el.textContent=text; el.className='st'+(cls?' '+cls:''); }
+function setProg(s, frac){ const el=$('pg-'+s); if(el) el.style.width=(frac*100)+'%'; }
+function flashCard(s, cls){ const c=$('card-'+s); if(!c) return; c.classList.remove('flash-ok','flash-bad'); void c.offsetWidth; c.classList.add(cls); setTimeout(()=>c.classList.remove(cls), 450); }
+function setHub(t, sub, big){ const h=$('hub-t'); h.textContent=t; h.classList.toggle('big', !!big); $('hub-s').textContent=sub||''; }
+function renderSteps(lit){ $('steps').innerHTML=seq.map((_,i)=>`<i class="sd${i<lit?' on':''}"></i>`).join(''); }
+function setBadge(){ $('rbadge').textContent=`Round ${round}`; $('rsub').textContent=`${seq.length} steps`; }
+
+// ── Game flow ──
+function startGame(){
+  menu=null; clearTimers(); showPanel(null);
+  P={}; active.forEach(s=>P[s]={ lives:LIVES, best:0, pos:0, st:'typing' });
+  seq=[]; for(let i=0;i<START_LEN;i++) seq.push(nextPad());
+  round=1;
+  buildTopbar();
+  active.forEach(s=>{ renderHearts(s); setSt(s,'Get ready'); setProg(s,0); $('best-'+s).innerHTML='0<small>best</small>'; });
+  setBadge(); renderSteps(0);
+  $('result').classList.remove('show');
+  $('timer-fill').style.width='0';
+  countdown(3);
+}
+
+// Avoid three of the same pad in a row — it reads as a glitch.
+function nextPad(){
+  let p;
+  do{ p=Math.floor(Math.random()*4); } while(seq.length>=2 && seq[seq.length-1]===p && seq[seq.length-2]===p);
+  return p;
+}
+
+function countdown(n){
+  phase='countdown';
+  $('board').classList.add('rest');
+  const step=k=>{
+    if(k===0) return watch();
+    setHub(String(k),'Get ready',true); sTick();
+    const st={}; active.forEach(s=>st[s]={ text:`Starting in ${k}` });
+    pushUI({ status:st, caption:'Watch the big screen' });
+    later(()=>step(k-1), 800);
+  };
+  step(n);
+}
+
+function watch(){
+  phase='watch';
+  $('board').classList.remove('rest');
+  setBadge(); renderSteps(0);
+  $('result').classList.remove('show');
+  $('timer-fill').style.width='0';
+  setHub('Watch', `${seq.length} steps`);
+  active.forEach(s=>{ P[s].pos=0; setProg(s,0); if(P[s].lives>0){ P[s].st='watch'; setSt(s,'Watching'); } else { P[s].st='out'; setSt(s,'Out'); } });
+  const st={}; active.forEach(s=>st[s]= P[s].lives>0 ? { text:'Watch the big screen' } : { text:'Out — watch the others' });
+  pushUI({ status:st, caption:'Remember the order' });
+  const on=flashOn(seq.length), gap=flashGap(seq.length);
+  const play=i=>{
+    if(i>=seq.length){ later(input, 380); return; }
+    const pad=pads[seq[i]];
+    pad.classList.add('lit'); sPad(seq[i], on); renderSteps(i+1);
+    later(()=>{ pad.classList.remove('lit'); later(()=>play(i+1), gap); }, on);
+  };
+  later(()=>play(0), 700);
+}
+
+function input(){
+  phase='input';
+  setHub('Your turn', 'Repeat it'); sGo();
+  $('board').classList.add('rest');
+  alive().forEach(s=>{ P[s].st='typing'; P[s].pos=0; setSt(s,`0 / ${seq.length}`); });
+  pushUI({ caption:'Tap the pads in order' });
+  timerDur=inputTime(seq.length); timerStart=performance.now();
+  animateTimer();
+  inputTimer=later(timeUp, timerDur);
+}
+
+function animateTimer(){
+  if(phase!=='input') return;
+  const frac=Math.max(0,1-(performance.now()-timerStart)/timerDur);
+  const f=$('timer-fill'); f.style.width=(frac*100)+'%'; f.classList.toggle('low', frac<.25);
+  if(frac>0) timerRAF=requestAnimationFrame(animateTimer);
+}
+
+function handlePad(slot, pad){
+  const p=P[slot];
+  if(!p || p.lives<=0 || p.st!=='typing') return;
+  if(seq[p.pos]===pad){
+    p.pos++;
+    setProg(slot, p.pos/seq.length); setSt(slot, `${p.pos} / ${seq.length}`);
+    if(p.pos>=seq.length){
+      p.st='done'; p.best=Math.max(p.best, seq.length);
+      $('best-'+slot).innerHTML=`${p.best}<small>best</small>`;
+      setSt(slot,'Got it', 'good'); flashCard(slot,'flash-ok');
+      toPlayer(slot, { t:'done', pos:p.pos, len:seq.length });
+    } else toPlayer(slot, { t:'ok', pos:p.pos, len:seq.length });
+  } else {
+    p.st='wrong'; p.lives=Math.max(0,p.lives-1);
+    renderHearts(slot, true); flashCard(slot,'flash-bad'); sBad();
+    setSt(slot, p.lives ? `Wrong · ${livesText(p.lives)}` : 'Out!', 'bad');
+    toPlayer(slot, { t:'wrong', lives:p.lives, expected:seq[p.pos] });
+  }
+  if(active.every(s=>P[s].st!=='typing')){
+    cancelLater(inputTimer); inputTimer=null; later(roundOver, 350);
+  }
+}
+
+function timeUp(){
+  inputTimer=null;
+  if(phase!=='input') return;
+  active.forEach(s=>{
+    const p=P[s];
+    if(p.lives>0 && p.st==='typing'){
+      p.st='slow'; p.lives=Math.max(0,p.lives-1);
+      renderHearts(s, true); flashCard(s,'flash-bad');
+      setSt(s, p.lives ? `Too slow · ${livesText(p.lives)}` : 'Out!', 'bad');
+      toPlayer(s, { t:'slow', lives:p.lives });
+    }
+  });
+  sBad();
+  roundOver();
+}
+
+function roundOver(){
+  if(phase!=='input') return;
+  phase='result';
+  cancelAnimationFrame(timerRAF); $('timer-fill').style.width='0';
+  const played=active.filter(s=>['done','wrong','slow'].includes(P[s].st));
+  const good=played.filter(s=>P[s].st==='done'), bad=played.filter(s=>P[s].st!=='done');
+  const solo=active.length===1;
+  const r=$('result');
+  if(!bad.length){ sGood(); setHub('✓', solo?'Correct':'Everyone got it'); r.innerHTML = solo ? `Correct <span class="sub">· ${seq.length} steps</span>` : `Everyone got it <span class="sub">· ${seq.length} steps</span>`; }
+  else if(!good.length){ setHub('✗', solo?'Missed':'Nobody got it'); r.innerHTML = solo ? `${P[active[0]].st==='slow'?'Too slow':'Wrong'} <span class="sub">· ${livesText(P[active[0]].lives)}</span>` : `Nobody got it <span class="sub">· everyone loses a life</span>`; }
+  else { setHub('½', `${good.length} of ${played.length}`); r.innerHTML = bad.map(s=>`<span class="chip ${s}" style="width:1.6em;height:1.6em;font-size:.8em">${s}</span>`).join('') + ` lost a life <span class="sub">· ${seq.length} steps</span>`; }
+  r.classList.add('show');
+
+  const st={}; active.forEach(s=>st[s]=playerStatus(s));
+  pushUI({ status:st, caption:`Next: ${seq.length+1} steps` });
+
+  const left=alive().length;
+  const over = solo ? left===0 : left<=1;
+  later(over ? endGame : nextRound, over ? RESULT_TIME+500 : RESULT_TIME);
+}
+
+function nextRound(){
+  round++; seq.push(nextPad());
+  watch();
+}
+
+function endGame(){
+  phase='end'; clearTimers();
+  sGood();
+  const solo=active.length===1;
+  let title, cards, w=null;
+  if(solo){
+    const s=active[0], p=P[s];
+    let best=0; try{ best=parseInt(localStorage.getItem('echo_best')||'0',10)||0; }catch(e){}
+    const isNew=p.best>best; if(isNew){ best=p.best; try{ localStorage.setItem('echo_best',String(best)); }catch(e){} }
+    title='Game over';
+    cards=`<div class="rc solo"><div class="rc-n"><span class="chip ${s}">${s}</span>Player ${s}</div><div class="rc-s">${p.best}</div><div class="rc-l">longest sequence</div><div class="bestline">Best <b>${best}</b>${isNew&&best>0?'<span class="newbest">New best</span>':''}</div></div>`;
+  } else {
+    // last one standing; if the last players fall together, the longest sequence wins
+    const left=alive();
+    if(left.length===1) w=left[0];
+    else {
+      const top=Math.max(...active.map(s=>P[s].best));
+      const tied=active.filter(s=>P[s].best===top);
+      if(tied.length===1) w=tied[0];
+    }
+    title = w ? `Player ${w} wins` : 'Draw';
+    cards = active.map(s=>`<div class="rc ${w===s?'win':''}" style="--wc:var(--${s})"><div class="rc-n"><span class="chip ${s}">${s}</span>Player ${s}</div><div class="rc-s">${P[s].best}</div><div class="rc-l">longest sequence</div><div class="rc-w">${w===s?(left.length===1?'Last one standing':'Longest sequence'):!w?'Draw':''}</div></div>`).join('');
+  }
+  $('end-title').textContent=title;
+  $('end-cards').innerHTML=cards;
+  const st={}; active.forEach(s=>st[s]={ text: w===s ? 'You win!' : `Longest: ${P[s].best} steps`, tone: w===s ? 'win' : '' });
+  showPanel('p-end');
+  lastUI={ status:st };
+  openMenu('end', [
+    { label:'Play again',    action:()=>startGame() },
+    { label:'Back to lobby', action:()=>backToLobby() }
+  ], 0);
+}
+</script>
+</body>
+</html>
