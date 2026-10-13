@@ -219,17 +219,20 @@ const ac = AC ? new AC() : null;
 const master = ac ? ac.createGain() : null;
 if(master){ master.gain.value=.55; master.connect(ac.destination); }
 const NOTES=[329.63,440.00,554.37,659.25];
-// Pad press sound (his sample, public/assets/press.mp3), shared by all four pads.
-let pressBuf=null;
+// His samples: press.mp3 for every pad press, system.mp3 for every other cue
+// (countdown, your turn, round result, menu). Relative paths work under /echo/.
+const SFX={ press:null, system:null };
 function decode(ab){ return new Promise((res,rej)=>{ const p=ac.decodeAudioData(ab,res,rej); if(p&&p.then) p.then(res,rej); }); }
-if(ac) fetch('assets/press.mp3').then(r=>r.arrayBuffer()).then(decode).then(b=>{ pressBuf=b; }).catch(e=>console.warn('press sound',e));
-function pressSound(dest, vol){
-  if(!ac || !pressBuf) return false;
+if(ac) Object.keys(SFX).forEach(k=>fetch(`assets/${k}.mp3`).then(r=>r.arrayBuffer()).then(decode).then(b=>{ SFX[k]=b; }).catch(e=>console.warn(k,'sound',e)));
+function sample(name, dest, vol){
+  if(!ac || !SFX[name]) return false;
   if(ac.state==='suspended') ac.resume();
   const s=ac.createBufferSource(), g=ac.createGain();
-  s.buffer=pressBuf; g.gain.value=vol; s.connect(g); g.connect(dest); s.start();
+  s.buffer=SFX[name]; g.gain.value=vol; s.connect(g); g.connect(dest); s.start();
   return true;
 }
+const pressSound=(dest,vol)=>sample('press',dest,vol);
+const systemSound=(dest,vol)=>sample('system',dest,vol);
 function tone(freq, dur, type, vol, when){
   if(!ac) return;
   if(ac.state==='suspended') ac.resume();
@@ -239,11 +242,10 @@ function tone(freq, dur, type, vol, when){
   o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+.05);
 }
 const sPad  = (i,ms) => { if(!pressSound(master, 1.6)) tone(NOTES[i], Math.max(.25,ms/1000+.12), 'triangle', .4); };
-const sTick = () => tone(880,.09,'square',.08);
-const sGo   = () => { tone(659.25,.12,'triangle',.25); tone(880,.22,'triangle',.25,.1); };
-const sGood = () => { tone(554.37,.14,'triangle',.22); tone(659.25,.14,'triangle',.22,.09); tone(880,.3,'triangle',.22,.18); };
-const sBad  = () => { tone(146.8,.32,'sawtooth',.14); tone(110,.4,'sawtooth',.12,.12); };
-const sClick= () => tone(1200,.04,'square',.05);
+// One cue at a time: cues fired together (e.g. menu select + countdown) play once.
+let lastSystem=0;
+const sSystem = () => { const now=performance.now(); if(now-lastSystem<200) return; lastSystem=now; systemSound(master, 1.0); };
+const sTick = sSystem, sGo = sSystem, sGood = sSystem, sBad = sSystem, sClick = sSystem;
 ['pointerdown','click','keydown','touchstart'].forEach(e=>document.addEventListener(e,()=>{ if(ac&&ac.state==='suspended') ac.resume(); }));
 
 // ── State ──

@@ -167,17 +167,20 @@ const buzz = ms => { try{ navigator.vibrate && navigator.vibrate(ms); }catch(e){
 // local pad sound on each tap (the big screen stays silent while phones tap)
 const AC=window.AudioContext||window.webkitAudioContext; const ac=AC?new AC():null;
 const NOTES=[329.63,440.00,554.37,659.25];
-// Pad press sound (his sample, public/assets/press.mp3), shared by all four pads.
-let pressBuf=null;
+// His samples: press.mp3 for every pad press, system.mp3 for every other cue
+// (countdown, your turn, round result, menu). Relative paths work under /echo/.
+const SFX={ press:null, system:null };
 function decode(ab){ return new Promise((res,rej)=>{ const p=ac.decodeAudioData(ab,res,rej); if(p&&p.then) p.then(res,rej); }); }
-if(ac) fetch('assets/press.mp3').then(r=>r.arrayBuffer()).then(decode).then(b=>{ pressBuf=b; }).catch(e=>console.warn('press sound',e));
-function pressSound(dest, vol){
-  if(!ac || !pressBuf) return false;
+if(ac) Object.keys(SFX).forEach(k=>fetch(`assets/${k}.mp3`).then(r=>r.arrayBuffer()).then(decode).then(b=>{ SFX[k]=b; }).catch(e=>console.warn(k,'sound',e)));
+function sample(name, dest, vol){
+  if(!ac || !SFX[name]) return false;
   if(ac.state==='suspended') ac.resume();
   const s=ac.createBufferSource(), g=ac.createGain();
-  s.buffer=pressBuf; g.gain.value=vol; s.connect(g); g.connect(dest); s.start();
+  s.buffer=SFX[name]; g.gain.value=vol; s.connect(g); g.connect(dest); s.start();
   return true;
 }
+const pressSound=(dest,vol)=>sample('press',dest,vol);
+const systemSound=(dest,vol)=>sample('system',dest,vol);
 function tone(f,d,type,v){ if(!ac) return; if(ac.state==='suspended') ac.resume(); const t=ac.currentTime,o=ac.createOscillator(),g=ac.createGain(); o.type=type||'triangle'; o.frequency.value=f; g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(v||.18,t+.01); g.gain.exponentialRampToValueAtTime(.0008,t+d); o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+d+.05); }
 
 function showScreen(name){ ['join','lobby','msg','play'].forEach(s=>$(s+'-screen').classList.toggle('hidden', s!==name)); }
@@ -304,12 +307,12 @@ function setPads(on){ padsOn=on; $('pads').classList.toggle('off', !on); if(!on)
 socket.on('player_msg', m => {
   if(!m) return;
   if(m.t==='ok'){ myPos=m.pos; renderDots(); }
-  else if(m.t==='done'){ myPos=m.pos; renderDots(); setPads(false); buzz([20,40,20]); $('status').className='win'; $('status').textContent='Got it!'; tone(880,.25,'triangle',.15); }
+  else if(m.t==='done'){ myPos=m.pos; renderDots(); setPads(false); buzz([20,40,20]); $('status').className='win'; $('status').textContent='Got it!'; systemSound(ac && ac.destination, .8); }
   else if(m.t==='wrong' || m.t==='slow'){
     setPads(false); buzz(250); renderHearts(m.lives);
     $('status').className='bad';
     $('status').textContent = m.lives ? `${m.t==='wrong'?'Wrong':'Too slow'} — ${m.lives===1?'1 life':m.lives+' lives'} left` : 'Out!';
-    tone(130,.35,'sawtooth',.1);
+    systemSound(ac && ac.destination, .8);
     if(m.t==='wrong' && m.expected>=0){ const p=document.querySelector(`.pad[data-pad="${m.expected}"]`); if(p){ p.classList.add('hint'); setTimeout(()=>p.classList.remove('hint'),1200); } }
   }
 });
