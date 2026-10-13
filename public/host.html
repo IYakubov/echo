@@ -219,6 +219,17 @@ const ac = AC ? new AC() : null;
 const master = ac ? ac.createGain() : null;
 if(master){ master.gain.value=.55; master.connect(ac.destination); }
 const NOTES=[329.63,440.00,554.37,659.25];
+// Pad press sound (his sample, public/assets/press.mp3), shared by all four pads.
+let pressBuf=null;
+function decode(ab){ return new Promise((res,rej)=>{ const p=ac.decodeAudioData(ab,res,rej); if(p&&p.then) p.then(res,rej); }); }
+if(ac) fetch('assets/press.mp3').then(r=>r.arrayBuffer()).then(decode).then(b=>{ pressBuf=b; }).catch(e=>console.warn('press sound',e));
+function pressSound(dest, vol){
+  if(!ac || !pressBuf) return false;
+  if(ac.state==='suspended') ac.resume();
+  const s=ac.createBufferSource(), g=ac.createGain();
+  s.buffer=pressBuf; g.gain.value=vol; s.connect(g); g.connect(dest); s.start();
+  return true;
+}
 function tone(freq, dur, type, vol, when){
   if(!ac) return;
   if(ac.state==='suspended') ac.resume();
@@ -227,7 +238,7 @@ function tone(freq, dur, type, vol, when){
   g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(vol||.35,t+.015); g.gain.exponentialRampToValueAtTime(.0008,t+dur);
   o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+.05);
 }
-const sPad  = (i,ms) => tone(NOTES[i], Math.max(.25,ms/1000+.12), 'triangle', .4);
+const sPad  = (i,ms) => { if(!pressSound(master, 1.6)) tone(NOTES[i], Math.max(.25,ms/1000+.12), 'triangle', .4); };
 const sTick = () => tone(880,.09,'square',.08);
 const sGo   = () => { tone(659.25,.12,'triangle',.25); tone(880,.22,'triangle',.25,.1); };
 const sGood = () => { tone(554.37,.14,'triangle',.22); tone(659.25,.14,'triangle',.22,.09); tone(880,.3,'triangle',.22,.18); };

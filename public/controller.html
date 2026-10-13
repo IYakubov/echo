@@ -164,9 +164,20 @@ let mySlot=null, myCode=null, isReady=false, dead=false;
 let padsOn=false, myLen=0, myPos=0;
 const buzz = ms => { try{ navigator.vibrate && navigator.vibrate(ms); }catch(e){} };
 
-// quiet local pad tones (the big screen stays silent while phones tap)
+// local pad sound on each tap (the big screen stays silent while phones tap)
 const AC=window.AudioContext||window.webkitAudioContext; const ac=AC?new AC():null;
 const NOTES=[329.63,440.00,554.37,659.25];
+// Pad press sound (his sample, public/assets/press.mp3), shared by all four pads.
+let pressBuf=null;
+function decode(ab){ return new Promise((res,rej)=>{ const p=ac.decodeAudioData(ab,res,rej); if(p&&p.then) p.then(res,rej); }); }
+if(ac) fetch('assets/press.mp3').then(r=>r.arrayBuffer()).then(decode).then(b=>{ pressBuf=b; }).catch(e=>console.warn('press sound',e));
+function pressSound(dest, vol){
+  if(!ac || !pressBuf) return false;
+  if(ac.state==='suspended') ac.resume();
+  const s=ac.createBufferSource(), g=ac.createGain();
+  s.buffer=pressBuf; g.gain.value=vol; s.connect(g); g.connect(dest); s.start();
+  return true;
+}
 function tone(f,d,type,v){ if(!ac) return; if(ac.state==='suspended') ac.resume(); const t=ac.currentTime,o=ac.createOscillator(),g=ac.createGain(); o.type=type||'triangle'; o.frequency.value=f; g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(v||.18,t+.01); g.gain.exponentialRampToValueAtTime(.0008,t+d); o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+d+.05); }
 
 function showScreen(name){ ['join','lobby','msg','play'].forEach(s=>$(s+'-screen').classList.toggle('hidden', s!==name)); }
@@ -309,7 +320,7 @@ document.querySelectorAll('.pad').forEach(pad=>{
   const down=e=>{
     e.preventDefault();
     if(!padsOn) return;
-    pad.classList.add('lit'); buzz(10); tone(NOTES[i],.22);
+    pad.classList.add('lit'); buzz(10); if(!pressSound(ac && ac.destination, 1.6)) tone(NOTES[i],.22);
     clearTimeout(pad._t); pad._t=setTimeout(()=>pad.classList.remove('lit'),160);
     socket.emit('ctrl_pad', { pad:i });
   };
